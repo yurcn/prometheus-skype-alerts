@@ -30,8 +30,11 @@ $ python3 prometheus-skype-alerts
 
 Docker image
 -------
-You can use Dockerfile supplied with the package or run it from ghcr.io
-
+You can use Dockerfile supplied with the package or run it from ghcr.io.
+Provide configuration in ``/config.yaml``:
+```shell
+$ docker run -d -p 9478:9478 -v ./config.yaml:/config.yaml ghcr.io/yurcn/prometheus-skype-alerts
+```
 
 Testing
 -------

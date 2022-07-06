@@ -14,7 +14,6 @@ import subprocess
 import argparse
 import json
 import logging
-import sys
 
 import yaml
 from aiohttp import web
@@ -35,6 +34,7 @@ from skpy import Skype, SkypeAuthException, SkypeEventLoop, SkypeNewMessageEvent
 
 
 DEFAULT_CONF_PATH = '/etc/prometheus/skype-alerts.yml'
+TEST_MSG = 'Test message from prometheus-skype-alerts'
 
 alert_counter = Counter('alert_count', 'Total number of alerts delivered')
 test_counter = Counter('test_count', 'Total number of test alerts delivered')
@@ -74,13 +74,13 @@ class SkypeApp(SkypeEventLoop):
         last_alert_message_succeeded_gauge.set(1)
 
     def onEvent(self, event):
-        logging.info(vars(event))
-        if isinstance(event, SkypeNewMessageEvent):
-          if event.msg.content.lower() in ('alert', 'silence'):
-            if self.alertmanager_url:
-                args = ['--alertmanager.url', self.alertmanager_url] + args
-                response = run_amtool(args)
-                event.msg.chat.sendMsg(response)
+        if self.alertmanager_url:
+            logging.info(vars(event))
+            if isinstance(event, SkypeNewMessageEvent):
+                if event.msg.content.lower() in ('alert', 'silence'):
+                    args = ['--alertmanager.url', self.alertmanager_url] + args
+                    response = run_amtool(args)
+                    event.msg.chat.sendMsg(response)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', dest='config_path',
@@ -126,7 +126,10 @@ async def serve_test(request):
     to_user = request.match_info.get('to_user', config['to_user'])
     test_counter.inc()
     try:
-        skype_app.contacts[to_user].chat.sendMsg('Test message from prometheus-skype-alerts')       
+        if '@thread.skype' in to_user:
+            skype_app.chats[to_user].sendMsg(TEST_MSG)
+        else:
+            skype_app.contacts[to_user].chat.sendMsg(TEST_MSG)       
     except SkypeAuthException as e:
         logging.warning('Test alert not posted since we are not online: %s', e)
         return web.Response(
@@ -148,7 +151,10 @@ async def serve_alert(request):
         else:
             text = '\n'.join(create_message_short(alert))
         try:
-            skype_app.contacts[to_user].chat.sendMsg(text)
+            if '@thread.skype' in to_user:
+                skype_app.chats[to_user].sendMsg(text)
+            else:
+                skype_app.contacts[to_user].chat.sendMsg(text)
         except SkypeAuthException as e:
             logging.warning('Alert posted but we are not online: %s', e)
             last_alert_message_succeeded_gauge.set(0)

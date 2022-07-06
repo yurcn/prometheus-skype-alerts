@@ -35,8 +35,8 @@ def create_message_short(message):
             summary = alert['labels']['alertname']
         yield '%s, %s, %s' % (
             alert['status'].upper(),
-            parse_timestring(alert['startsAt']).isoformat(timespec='seconds'),
-            summary)
+            summary,
+            parse_timestring(alert['startsAt']).isoformat(timespec='seconds'))
 
 
 def create_message_full(message):
